@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateArtistProfileDto } from './dto/create-artist-profile.dto';
 import { UpdateArtistProfileDto } from './dto/update-artist-profile.dto';
@@ -62,30 +66,47 @@ export class ArtistsService {
   async findAll(query: GetArtistsDto) {
     const { search, skip = 0, take = 20 } = query;
 
+    // select로 필요한 필드만 조회 (N+1 방지 + 응답 최적화)
     return this.prisma.user.findMany({
       where: {
         role: 'ARTIST',
         status: 'ACTIVE',
         ...(search && {
           OR: [
-            { nickname: { contains: search, mode: 'insensitive' as const } },
-            { artistProfile: { bio: { contains: search, mode: 'insensitive' as const } } },
+            {
+              nickname: {
+                contains: search,
+                mode: 'insensitive' as const,
+              },
+            },
+            {
+              artistProfile: {
+                bio: { contains: search, mode: 'insensitive' as const },
+              },
+            },
           ],
         }),
       },
-      include: {
+      select: {
+        id: true,
+        nickname: true,
+        profileImage: true,
         artistProfile: {
-          include: {
+          select: {
+            bio: true,
+            specialties: true,
+            priceRange: true,
+            averageRating: true,
+            totalTransactions: true,
             portfolios: {
-              take: 5,
+              take: 4,
               orderBy: { displayOrder: 'asc' },
+              select: {
+                id: true,
+                imageUrl: true,
+              },
             },
           },
-        },
-        receivedReviews: {
-          where: { type: 'CLIENT_TO_ARTIST' },
-          select: { rating: true },
-          take: 10,
         },
       },
       skip,

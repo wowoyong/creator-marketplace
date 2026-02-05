@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, Min } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsInt,
+  Min,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateTransactionDto {
   @IsString()
@@ -7,10 +14,12 @@ export class CreateTransactionDto {
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(100)
   title: string;
 
   @IsString()
   @IsNotEmpty()
+  @MaxLength(2000)
   description: string;
 
   @IsOptional()

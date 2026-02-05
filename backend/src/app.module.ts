@@ -11,6 +11,7 @@ import { UploadsModule } from './uploads/uploads.module';
 import { ChatModule } from './chat/chat.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ReviewsModule } from './reviews/reviews.module';
     ChatModule,
     TransactionsModule,
     ReviewsModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

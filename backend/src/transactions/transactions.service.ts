@@ -7,6 +7,7 @@ import {
 import { PrismaService } from '../common/prisma/prisma.service';
 import { ChatService } from '../chat/chat.service';
 import { ChatGateway } from '../chat/chat.gateway';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import type { TransactionStatus } from '@prisma/client';
 
@@ -16,6 +17,7 @@ export class TransactionsService {
     private readonly prisma: PrismaService,
     private readonly chatService: ChatService,
     private readonly chatGateway: ChatGateway,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async createRequest(clientId: string, dto: CreateTransactionDto) {
@@ -26,6 +28,12 @@ export class TransactionsService {
     if (!artist || artist.role !== 'ARTIST') {
       throw new BadRequestException('유효하지 않은 작가입니다');
     }
+
+    // 의뢰인 정보
+    const client = await this.prisma.user.findUnique({
+      where: { id: clientId },
+      select: { nickname: true },
+    });
 
     // 채팅방 생성 또는 가져오기
     const chatRoom = await this.chatService.createRoom(clientId, dto.artistId);
@@ -57,6 +65,14 @@ export class TransactionsService {
 
     this.chatGateway.sendToRoom(chatRoom.id, 'message_received', systemMessage);
     this.chatGateway.sendToRoom(chatRoom.id, 'transaction_created', transaction);
+
+    // 알림: 작가에게 새 의뢰 요청 알림
+    await this.notificationsService.notifyTransactionRequest(
+      dto.artistId,
+      client?.nickname || '의뢰인',
+      dto.title,
+      transaction.id,
+    );
 
     return transaction;
   }
@@ -126,6 +142,9 @@ export class TransactionsService {
       updated,
     );
 
+    // 알림 발송
+    await this.sendStatusNotification(updated, newStatus, userId);
+
     return updated;
   }
 
@@ -170,6 +189,35 @@ export class TransactionsService {
     }
 
     return transaction;
+  }
+
+  private async sendStatusNotification(
+    transaction: {
+      id: string;
+      title: string;
+      clientId: string;
+      artistId: string;
+      client: { nickname: string };
+      artist: { nickname: string };
+    },
+    status: TransactionStatus,
+    actorId: string,
+  ) {
+    if (status === 'ACCEPTED') {
+      await this.notificationsService.notifyTransactionAccept(
+        transaction.clientId,
+        transaction.artist.nickname,
+        transaction.title,
+        transaction.id,
+      );
+    } else if (status === 'COMPLETED') {
+      await this.notificationsService.notifyTransactionComplete(
+        transaction.clientId,
+        transaction.artist.nickname,
+        transaction.title,
+        transaction.id,
+      );
+    }
   }
 
   private canTransition(

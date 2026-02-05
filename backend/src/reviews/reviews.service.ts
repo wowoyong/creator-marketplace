@@ -5,12 +5,16 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 import type { ReviewType } from '@prisma/client';
 
 @Injectable()
 export class ReviewsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationsService: NotificationsService,
+  ) {}
 
   async create(userId: string, dto: CreateReviewDto) {
     const transaction = await this.prisma.transaction.findUnique({
@@ -53,6 +57,12 @@ export class ReviewsService {
       throw new BadRequestException('이미 후기를 작성했습니다');
     }
 
+    // 작성자 정보
+    const author = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { nickname: true },
+    });
+
     // 후기 생성
     const review = await this.prisma.review.create({
       data: {
@@ -89,6 +99,14 @@ export class ReviewsService {
         data: { status: 'REVIEWED' },
       });
     }
+
+    // 알림: 대상에게 후기 알림
+    await this.notificationsService.notifyReviewReceived(
+      targetId,
+      author?.nickname || '사용자',
+      dto.rating,
+      dto.transactionId,
+    );
 
     return review;
   }

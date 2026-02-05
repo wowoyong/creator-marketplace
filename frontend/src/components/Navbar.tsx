@@ -29,6 +29,12 @@ export default function Navbar() {
             <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />
           ) : user ? (
             <div className="flex items-center gap-3">
+              <Link href="/chat" className="text-gray-600 hover:text-gray-900">
+                채팅
+              </Link>
+              <Link href="/transactions" className="text-gray-600 hover:text-gray-900">
+                거래
+              </Link>
               {user.role === 'ARTIST' && (
                 <Link
                   href="/artist/profile/setup"

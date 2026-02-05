@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from 'react';
 import Navbar from '@/components/Navbar';
 import Link from 'next/link';
+import { useAuthStore } from '@/stores/auth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
 
@@ -35,6 +36,7 @@ interface ArtistDetail {
 
 export default function ArtistDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { user } = useAuthStore();
   const [artist, setArtist] = useState<ArtistDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -87,21 +89,31 @@ export default function ArtistDetailPage({ params }: { params: Promise<{ id: str
       <Navbar />
       <main className="max-w-4xl mx-auto px-4 py-8">
         {/* 프로필 헤더 */}
-        <div className="flex items-center gap-4 mb-8">
-          <div className="w-20 h-20 bg-gray-300 rounded-full overflow-hidden">
-            {artist.profileImage && (
-              <img src={artist.profileImage} alt="" className="w-full h-full object-cover" />
-            )}
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold">{artist.nickname}</h1>
-            <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
-              {profile.averageRating && (
-                <span className="text-yellow-600">{'★'} {profile.averageRating.toFixed(1)}</span>
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-20 h-20 bg-gray-300 rounded-full overflow-hidden">
+              {artist.profileImage && (
+                <img src={artist.profileImage} alt="" className="w-full h-full object-cover" />
               )}
-              <span>거래 {profile.totalTransactions}건</span>
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold">{artist.nickname}</h1>
+              <div className="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                {profile.averageRating && (
+                  <span className="text-yellow-600">{'★'} {profile.averageRating.toFixed(1)}</span>
+                )}
+                <span>거래 {profile.totalTransactions}건</span>
+              </div>
             </div>
           </div>
+          {user && user.id !== artist.id && (
+            <Link
+              href={'/artists/' + id + '/request'}
+              className="bg-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-purple-700 transition"
+            >
+              의뢰 요청
+            </Link>
+          )}
         </div>
 
         {/* 소개 */}

@@ -2,14 +2,22 @@
 
 import Link from 'next/link';
 import { useAuthStore } from '@/stores/auth';
+import { useNotifications } from '@/hooks/useNotifications';
 import { useEffect } from 'react';
 
 export default function Navbar() {
   const { user, isLoading, fetchUser, logout } = useAuthStore();
+  const { unreadCount, requestPermission } = useNotifications();
 
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
+
+  useEffect(() => {
+    if (user) {
+      requestPermission();
+    }
+  }, [user, requestPermission]);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4001';
 
@@ -34,6 +42,14 @@ export default function Navbar() {
               </Link>
               <Link href="/transactions" className="text-gray-600 hover:text-gray-900">
                 거래
+              </Link>
+              <Link href="/notifications" className="relative text-gray-600 hover:text-gray-900">
+                알림
+                {unreadCount > 0 && (
+                  <span className="absolute -top-2 -right-3 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                    {unreadCount > 99 ? '99' : unreadCount}
+                  </span>
+                )}
               </Link>
               {user.role === 'ARTIST' && (
                 <Link

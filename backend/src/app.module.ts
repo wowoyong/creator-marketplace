@@ -8,6 +8,9 @@ import { UsersModule } from './users/users.module';
 import { ArtistsModule } from './artists/artists.module';
 import { PortfoliosModule } from './portfolios/portfolios.module';
 import { UploadsModule } from './uploads/uploads.module';
+import { ChatModule } from './chat/chat.module';
+import { TransactionsModule } from './transactions/transactions.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { UploadsModule } from './uploads/uploads.module';
     ArtistsModule,
     PortfoliosModule,
     UploadsModule,
+    ChatModule,
+    TransactionsModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -1,0 +1,330 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User & Profile
+// ============================================
+
+enum UserRole {
+  ARTIST
+  CLIENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+model User {
+  id            String      @id @default(cuid())
+  email         String      @unique
+  kakaoId       String      @unique
+  nickname      String
+  profileImage  String?
+  role          UserRole
+  status        UserStatus  @default(ACTIVE)
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  lastLoginAt   DateTime?
+  
+  artistProfile     ArtistProfile?
+  clientProfile     ClientProfile?
+  sentMessages      Message[]         @relation("SentMessages")
+  chatRooms         ChatRoomMember[]
+  sentTransactions  Transaction[]     @relation("ClientTransactions")
+  receivedTransactions Transaction[]  @relation("ArtistTransactions")
+  givenReviews      Review[]          @relation("ReviewAuthor")
+  receivedReviews   Review[]          @relation("ReviewTarget")
+  notifications     Notification[]
+  pushSubscriptions PushSubscription[]
+  
+  @@index([kakaoId])
+  @@index([role, status])
+  @@map("users")
+}
+
+model ArtistProfile {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  bio             String?   @db.Text
+  specialties     String[]
+  priceRange      String?
+  
+  totalTransactions Int     @default(0)
+  averageRating     Float?
+  responseRate      Float?
+  
+  portfolios        Portfolio[]
+  referenceUrls     String[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("artist_profiles")
+}
+
+model ClientProfile {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  preferredGenres String[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("client_profiles")
+}
+
+model Portfolio {
+  id              String        @id @default(cuid())
+  artistProfileId String
+  artistProfile   ArtistProfile @relation(fields: [artistProfileId], references: [id], onDelete: Cascade)
+  
+  imageUrl        String
+  title           String?
+  description     String?       @db.Text
+  displayOrder    Int           @default(0)
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  @@index([artistProfileId, displayOrder])
+  @@map("portfolios")
+}
+
+enum ChatRoomStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+model ChatRoom {
+  id          String          @id @default(cuid())
+  status      ChatRoomStatus  @default(ACTIVE)
+  
+  members     ChatRoomMember[]
+  messages    Message[]
+  transaction Transaction?
+  
+  lastMessageAt DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  
+  @@map("chat_rooms")
+}
+
+model ChatRoomMember {
+  id          String    @id @default(cuid())
+  chatRoomId  String
+  chatRoom    ChatRoom  @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  lastReadAt  DateTime?
+  joinedAt    DateTime  @default(now())
+  
+  @@unique([chatRoomId, userId])
+  @@index([userId])
+  @@map("chat_room_members")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+}
+
+model Message {
+  id          String      @id @default(cuid())
+  chatRoomId  String
+  chatRoom    ChatRoom    @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  
+  senderId    String
+  sender      User        @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  
+  type        MessageType @default(TEXT)
+  content     String      @db.Text
+  fileUrl     String?
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  @@index([chatRoomId, createdAt])
+  @@index([senderId])
+  @@map("messages")
+}
+
+enum TransactionStatus {
+  REQUESTED
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  REVIEWED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  EXTERNAL
+  TOSS_PAYMENTS
+  BANK_TRANSFER
+}
+
+enum EscrowStatus {
+  NONE
+  PENDING
+  DEPOSITED
+  RELEASED
+  REFUNDED
+}
+
+model Transaction {
+  id              String            @id @default(cuid())
+  
+  clientId        String
+  client          User              @relation("ClientTransactions", fields: [clientId], references: [id])
+  
+  artistId        String
+  artist          User              @relation("ArtistTransactions", fields: [artistId], references: [id])
+  
+  chatRoomId      String            @unique
+  chatRoom        ChatRoom          @relation(fields: [chatRoomId], references: [id])
+  
+  title           String
+  description     String            @db.Text
+  agreedPrice     Int?
+  status          TransactionStatus @default(REQUESTED)
+  
+  paymentMethod   PaymentMethod     @default(EXTERNAL)
+  escrowStatus    EscrowStatus      @default(NONE)
+  pgTransactionId String?
+  paidAt          DateTime?
+  
+  requestedAt     DateTime          @default(now())
+  acceptedAt      DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  
+  reviews         Review[]
+  
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  @@index([clientId, status])
+  @@index([artistId, status])
+  @@index([status])
+  @@map("transactions")
+}
+
+enum ReviewType {
+  CLIENT_TO_ARTIST
+  ARTIST_TO_CLIENT
+}
+
+model Review {
+  id            String      @id @default(cuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  
+  type          ReviewType
+  
+  authorId      String
+  author        User        @relation("ReviewAuthor", fields: [authorId], references: [id])
+  
+  targetId      String
+  target        User        @relation("ReviewTarget", fields: [targetId], references: [id])
+  
+  rating        Int
+  content       String?     @db.Text
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  
+  @@unique([transactionId, type])
+  @@index([targetId, rating])
+  @@map("reviews")
+}
+
+enum NotificationType {
+  CHAT_MESSAGE
+  TRANSACTION_REQUEST
+  TRANSACTION_ACCEPT
+  TRANSACTION_COMPLETE
+  REVIEW_RECEIVED
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+}
+
+model Notification {
+  id          String            @id @default(cuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type        NotificationType
+  title       String
+  content     String            @db.Text
+  
+  metadata    Json?
+  
+  isRead      Boolean           @default(false)
+  readAt      DateTime?
+  
+  sentChannels NotificationChannel[]
+  
+  createdAt   DateTime          @default(now())
+  
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+model NotificationSettings {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  
+  enableInApp   Boolean @default(true)
+  enableEmail   Boolean @default(true)
+  enablePush    Boolean @default(true)
+  
+  notifyOnMessage     Boolean @default(true)
+  notifyOnTransaction Boolean @default(true)
+  notifyOnReview      Boolean @default(true)
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("notification_settings")
+}
+
+model PushSubscription {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  endpoint    String   @unique
+  keys        Json
+  
+  userAgent   String?
+  
+  createdAt   DateTime @default(now())
+  lastUsedAt  DateTime @default(now())
+  
+  @@index([userId])
+  @@map("push_subscriptions")
+}
